@@ -106,7 +106,7 @@ def generate_cert_digest(str_cert):
     cert = crypto.load_certificate(crypto.FILETYPE_PEM, str_cert)
     return cert.digest('SHA256')
 
-
+"""
 def get_most_likely_ip():
     for interface_name in netifaces.interfaces():
         if interface_name.startswith('lo'):
@@ -123,6 +123,68 @@ def get_most_likely_ip():
 
     default_ip = '127.0.0.1'
     logger.warning('Count not detect likely IP, returning {0}'.format(default_ip))
+    return '127.0.0.1'
+"""
+def get_most_likely_ip():
+    global interface # TODO: Move to config...
+    global ipmode    # TODO: Move to config...
+    
+    interface_list = ""
+    
+    if interface == "":
+        for interface_name in netifaces.interfaces():
+            interface_list = interface_list + interface_name + " " 
+        logger.debug('Possible network interfaces: {0}'.format(interface_list))
+        interface_name = raw_input("Give your interface name: ")
+        logger.debug('Interface {0} selected..'.format(interface_name))
+        interface = interface_name
+
+    if ipmode == "":
+        ipmode = raw_input("Do you want to use IPv4 or IPv6 addresses?: (4 or 6) ")
+        print ipmode
+        if ipmode == "6":
+            logger.debug('IPv6 addresses selected.')
+        else:
+            ipmode = "4"
+            logger.debug('IPv4 addresses selected.')
+
+    interface_name = interface
+    
+    try:
+        addresses = netifaces.ifaddresses(interface_name)
+        logger.debug('Possible addresses: {0} in interface {1}.'.format(addresses, interface_name))
+    except ValueError:
+        logger.error('Error when getting an address from interface {0}. '.format(interface_name))
+        logger.error('Trying first with lo and 127.0.0.1 instead...')
+        interface_name = "lo"
+        interface = ""
+        return '127.0.0.1'
+
+    if ipmode == "6":
+        if netifaces.AF_INET6 in addresses:
+            for item in addresses[netifaces.AF_INET6]:
+                if 'addr' in item:
+                    logger.debug('Found likely IPv6 address {0} on interface {1}.'.format(item['addr'], interface_name))
+                    # TODO: ask if it is good or not.
+                    return item['addr']
+                    # well, actually the interface could have more IP's... But for now we assume that the IP
+                    # we want is the first in the list on the IF.
+    else:
+        if netifaces.AF_INET in addresses:
+            for item in addresses[netifaces.AF_INET]:
+                if 'addr' in item:
+                    logger.debug('Found likely IPv4 address {0} on interface {1}'.format(item['addr'], interface_name))
+                    # TODO: ask if it is good or not.
+                    return item['addr']
+                    # well, actually the interface could have more IP's... But for now we assume that the IP
+                    # we want is the first in the list on the IF.
+
+    if ipmode == "6":
+        logger.error('Did not find any suitable IPv6 address from interface {0}.'.format(interface_name))
+        logger.error('Using IPv4, lo and 127.0.0.1 instead..')
+    else:
+        logger.error('Did not find any suitable IPv4 address from interface {0}.'.format(interface_name))
+        logger.error('Using lo and 127.0.0.1 instead..')
     return '127.0.0.1'
 
 
